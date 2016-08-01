@@ -1,0 +1,7 @@
+/.stack-work
+/src
+/test
+/app
+stack.yaml
+todoApp.hi
+todoApp.o
