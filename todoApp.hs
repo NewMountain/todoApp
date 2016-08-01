@@ -1,20 +1,48 @@
-import System.IO
-import System.Directory
-import Data.List
+import           Control.Exception
+import           Data.List
+import           System.Directory
+import           System.Environment
+import           System.IO
 
-main = do
-  contents <- readFile "todo.txt"
+dispatch :: String -> [String] -> IO ()
+dispatch "add"    = add
+dispatch "view"   = view
+dispatch "remove" = remove
+
+
+add :: [String] -> IO ()
+add [fileName, todoItem] = appendFile fileName (todoItem ++ "\n")
+
+
+view :: [String] -> IO ()
+view [fileName] = do
+  contents <- readFile fileName
   let todoTasks = lines contents
       numberedTasks = zipWith (\n line -> show n ++ " - " ++ line )
                               [0..] todoTasks
-  putStrLn "These are your TODO items: "
+  putStr $ unlines numberedTasks
+
+remove :: [String] -> IO ()
+remove [fileName, numberString] = do
+  contents <- readFile fileName
+  let todoTasks = lines contents
+      numberedTasks = zipWith (\n line -> show n ++ " - " ++ line )
+                              [0..] todoTasks
+  putStrLn "These are your ToDo items: "
   mapM_ putStrLn numberedTasks
-  putStrLn "Which one of these would you like to delete?"
-  numberString <- getLine
   let number = read numberString
       newTodoItems = unlines $ delete (todoTasks !! number) todoTasks
-  (tempName, tempHandle) <- openTempFile "." "temp"
-  hPutStr tempHandle newTodoItems
-  hClose tempHandle
-  removeFile "todo.txt"
-  renameFile tempName "todo.txt"
+  bracketOnError (openTempFile "." "temp")
+    (\(tempName, tempHandle) -> do
+      hClose tempHandle
+      removeFile tempName)
+    (\(tempName, tempHandle) -> do
+      hPutStr tempHandle newTodoItems
+      hClose tempHandle
+      removeFile fileName
+      renameFile tempName fileName)
+
+
+main = do
+  (command:argList) <- getArgs
+  dispatch command argList
